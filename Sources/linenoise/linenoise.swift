@@ -62,6 +62,8 @@ public class LineNoise {
     
     let inputFile: Int32
     let outputFile: Int32
+
+    var editState: EditState?
     
     // MARK: - Public Interface
     
@@ -148,7 +150,7 @@ public class LineNoise {
      - Throws: Can throw an error if the terminal cannot be written to.
      */
     public func clearScreen() throws {
-        try output(text: AnsiCodes.homeCursor)
+//        try output(text: AnsiCodes.homeCursor)
         try output(text: AnsiCodes.clearScreen)
     }
     
@@ -174,7 +176,13 @@ public class LineNoise {
             return try getLineRaw(prompt: prompt)
         }
     }
-    
+
+    public func refresh() throws {
+        if let editState = editState {
+            try refreshLine(editState: editState)
+        }
+    }
+
     // MARK: - Terminal handling
     
     private static func isUnsupportedTerm(_ term: String) -> Bool {
@@ -205,14 +213,18 @@ public class LineNoise {
     }
 
     internal func output(character: Character) throws {
-        if write(outputFile, String(character), 1) == -1 {
-            throw LinenoiseError.generalError("Unable to write to output")
+        DispatchQueue.main.async {
+            if write(self.outputFile, String(character), 1) == -1 {
+//                throw LinenoiseError.generalError("Unable to write to output")
+            }
         }
     }
     
     internal func output(text: String) throws {
-        if write(outputFile, text, text.count) == -1 {
-            throw LinenoiseError.generalError("Unable to write to output")
+        DispatchQueue.main.async {
+            if write(self.outputFile, text, text.count) == -1 {
+//                throw LinenoiseError.generalError("Unable to write to output")
+            }
         }
     }
     
@@ -624,6 +636,7 @@ public class LineNoise {
             // Clear screen
             try clearScreen()
             try refreshLine(editState: editState)
+            throw LinenoiseError.CTRL_L
             
         case ControlCharacters.Ctrl_T.rawValue:
             if !editState.swapCharacterWithPrevious() {
@@ -676,7 +689,8 @@ public class LineNoise {
     internal func editLine(prompt: String) throws -> String {
         try output(text: prompt)
         
-        let editState: EditState = EditState(prompt: prompt)
+        //let editState: EditState = EditState(prompt: prompt)
+        editState = EditState(prompt: prompt)
         
         while true {
             guard var char = readCharacter(inputFile: inputFile) else {
@@ -684,14 +698,15 @@ public class LineNoise {
             }
             
             if char == ControlCharacters.Tab.rawValue && completionCallback != nil {
-                if let completionChar = try completeLine(editState: editState) {
+                if let completionChar = try completeLine(editState: editState!) {
                     char = completionChar
                 }
             }
             
-            if let rv = try handleCharacter(char, editState: editState) {
+            if let rv = try handleCharacter(char, editState: editState!) {
                 return rv
             }
         }
+        editState = nil
     }
 }

@@ -34,4 +34,5 @@ public enum LinenoiseError: Error {
     case generalError(String)
     case EOF
     case CTRL_C
+    case CTRL_L
 }
